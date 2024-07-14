@@ -1,0 +1,19 @@
+
+% OFMC
+% Version of 2006/02/13
+SUMMARY
+  SAFE
+DETAILS
+  BOUNDED_NUMBER_OF_SESSIONS
+PROTOCOL
+  /home/span/span/testsuite/results/our_scheme.if
+GOAL
+  as_specified
+BACKEND
+  OFMC
+COMMENTS
+STATISTICS
+  parseTime: 0.00s
+  searchTime: 2.59s
+  visitedNodes: 288 nodes
+  depth: 9 plies

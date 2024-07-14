@@ -1,0 +1,175 @@
+role user(
+    Ui, MS, SNj   : agent,
+    SK1, MSK : symmetric_key, 
+    H, Hbio : hash_func,
+    SND, RCV      : channel(dy))
+played_by Ui def=
+
+
+local 
+	State : nat,
+	IDi, IDj, Bi, K, SK, SKj, Ri, C1, C2, C3, C4, S, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, Wj, Ai, B, Cj, Mj, AUTHMS, AUTHj, Zj   :text,
+	Inc: hash_func
+   
+	const r1,r2,r3,r4, s1,s2,s3,s4,s5  : protocol_id
+    
+init
+	State := 0
+transition
+	%User Registration
+		1.State  = 0 /\ RCV(start)=|>
+		  State':= 2 /\ Ri':= new()
+					 /\IDi':=new()
+					 /\Bi':=new()
+		  		     /\C1':= H(IDi.Hbio(Bi).Ri')
+				     /\C2':= xor(Hbio(Bi),Ri')
+				     /\secret({Ri',Bi'},s1,{Ui})
+					 /\SND({IDi.C1'.C2'}_SK1)
+				     
+	%User Login
+		
+		2.State  = 2 /\ RCV({P2'. P3'. S'}_SK1)   =|>
+		  State':= 9 /\ P1':=xor(P2',C1)
+					 /\ Ai':= new()
+					 /\C3':= xor(H(C1.P3'), Ai')
+					 /\C4':= H(C1.C3'.Ai')
+					 /\secret({Ai'},s2,{Ui,MS})
+					 /\ witness(Ui,MS,r1, Ai')
+					 /\SND(C3'. C4')
+	% Key Authentication				 
+		3.State  = 9 /\ RCV(P8'. P9'. P10'. AUTHMS') =|>
+		  State':= 10 /\ Cj':= xor(P8',C1)    /\ B':=xor(P9',Cj') /\ K':=xor(P10', H(IDi.Cj'.B')) /\ SK':=(K.B.Cj)
+
+end role
+
+
+role server(
+		Ui, MS, SNj   : agent,
+		SK1,SK2, MSK       : symmetric_key, 
+		H, Hbio  : hash_func,
+		SNDU, RCVU,SNDS,RCVS     : channel(dy))
+played_by MS def=
+local
+	State : nat,
+	IDi, IDj, Ri, K, SK, SKj, C1, C2, C3, C4, S, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, Wj, Ai, B, Cj, Mj, Zj, AUTHMS, AUTHj:text,
+	Inc: hash_func
+	const r1,r2,r3,r4, s1,s2,s3,s4,s5 : protocol_id
+init
+	State := 6
+	transition
+	% User + Node Registration
+		1. State  = 1 /\ RCVU(IDi'.C1'.C2') =|>
+		   State':= 4 /\ S' := new()
+					  /\P1' := H(C1'.IDi.MSK)
+					  /\P2' := xor(P1',C1')
+					  /\P3' := H(IDi.P1'.S')
+					  /\SNDU({P2'. P3'. S'}_SK1)
+		2. State  = 4 /\ RCVS({Mj'. IDj. Zj'}_SK2) =|>
+		   State':= 5 /\Wj':= H(IDj.MSK.Zj')
+					  /\SNDS({Wj'}_SK2)	
+	% Authentication Phase
+		3. State  = 6 /\ RCVU(C3'.C4')=|>		
+		   State':= 8 /\ Ai':=xor(C3',H(C1.P3)) /\ K' := new()
+					  /\B' := new()
+					  /\P4':= xor(H(IDj.Ai.Zj),B')
+					  /\P5':= xor(H(IDj.Wj.Zj),K')
+					  /\P6':= H(Mj.K'.B')
+					  /\SNDS(P4'. P5'. P6'. Ai')
+					  /\secret({B',K'},s3,{MS,SNj,Ui})
+					  /\witness(MS,SNj,r2,B')
+					  /\witness(MS,SNj,r3,K')
+					  
+		4. State  = 8 /\RCVS(P7'.AUTHj') =|>
+		   State':= 9 /\Cj':=xor(P7,H(Mj.Wj.Zj))
+					  /\SK':=H(K.B.Cj')
+					  /\P8':= xor(C1,Cj')
+					  /\P9':= xor(B,Cj')
+					  /\P10':= xor(H(IDi.Cj'.B),K)
+					  /\ AUTHMS':= H(SK'.C1)	
+					  /\ SNDU(P8'.P9'.P10'.AUTHMS')
+end role
+
+
+
+role node(
+    Ui, MS, SNj   : agent,
+    MSK, SK2      : symmetric_key, 
+    H, Hbio : hash_func,
+    SND, RCV     : channel(dy))
+played_by SNj def=
+
+local
+	State : nat,
+	IDi, IDj, Ri, C1, K, SK, SKj, C2, C3, C4, S, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, Wj, Ai, B, Cj, Mj, Zj, AUTHMS, AUTHj    :text,
+	Inc: hash_func
+	const r1,r2,r3,r4, s1,s2,s3,s4,s5 : protocol_id
+init
+	State := 5
+	transition
+	
+		% Device Registration
+		1. State  = 3 /\ RCV(start) =|>
+		   State':= 5 /\ IDj':=new()
+					  /\ Zj' := new()
+					  /\ SKj' := new()
+					  /\ Mj' := H(IDj.SKj'.Zj')
+					  /\ secret({SKj'} ,s4,{SNj})
+					  /\ SND({Mj'.IDj.Zj'}_SK2)
+		2. State  = 5 /\ RCV(Wj') =|>
+		   State':= 7
+		% Authentication
+		3. State  = 7 /\ RCV(P4'.P5'.P6'.Ai') =|>
+		   State':= 8 /\ B':= xor(P4,H(IDj.Ai'.Zj)) /\ K':= xor(H(IDj.Wj.Zj),P5) /\  Cj'  := new()
+					  /\ SK'  := H(K'.B'.Cj')
+					  /\ P7'  := xor(H(Mj.Wj.Zj),Cj')
+					  /\ AUTHj':= H(SK'.Wj)
+				      /\ secret({SK'}, s5, {Ui,MS,SNj})
+					  /\ witness(SNj,MS,r4,Cj')
+					  /\ SND(P7',AUTHj')
+end role
+
+
+role session(
+    Ui, MS, SNj   : agent,
+    SK1, SK2, MSK : symmetric_key, 
+    H, Hbio : hash_func)
+def=
+local 
+	SI, SJ, RI, RJ, SSU, RSU, SSS, RSS :channel(dy)
+	
+composition 
+	user(Ui, MS, SNj, SK1, MSK, H, Hbio, SI, RI) /\
+	server(Ui, MS, SNj, SK1, SK2, MSK, H, Hbio, SSU, RSU, SSS, RSS) /\
+	node(Ui, MS, SNj, SK2, MSK, H, Hbio, SJ, RJ)
+end role
+
+role environment()
+def=
+	const 
+		ui,ms,snj    :agent,
+		sk1,sk2,msk       : symmetric_key,
+		h, hbio : hash_func,
+		idi, idj, bi, ri, k, sk, skj, c1, c2, c3, c4, s, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, wj, zj, authj, authms, ai, b, cj, mj, r1,r2,r3,r4, s1,s2,s3,s4,s5:    protocol_id    
+	
+	intruder_knowledge={ui,snj, h,hbio,idi,idj, c3,c4, ai, p4, p5, p6, p7, p8, p9, p10, authj, authms }
+	composition
+		session(ui,ms,snj,sk1,sk2,msk,h,hbio) /\
+		session(i,ms,snj,sk1,sk2,msk,h,hbio) /\
+		session(ui,ms,i,sk1,sk2,msk,h,hbio)
+end role
+
+goal
+secrecy_of s1
+secrecy_of s2
+secrecy_of s3
+secrecy_of s4
+secrecy_of s5
+
+authentication_on r1
+authentication_on r2
+authentication_on r3
+authentication_on r4
+end goal
+
+environment()
+ 
